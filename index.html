@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Trade Platformu</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #10141c;
+      color: #fff;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .header-box, .login-box, .admin-panel {
+      background: #1a1f2b;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h2, h3 {
+      color: #00eaff;
+      margin-bottom: 20px;
+    }
+    input, button, textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: none;
+      background: #2b3143;
+      color: #eee;
+      font-size: 16px;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border: 1px solid #00eaff;
+    }
+    button {
+      background: linear-gradient(to right, #00eaff, #0088ff);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 10px rgba(0,234,255,0.3);
+    }
+    .ilanlar-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    .ilan {
+      background: #1e2433;
+      border-radius: 10px;
+      padding: 20px;
+      width: 300px;
+      border: 1px solid #00eaff10;
+      box-shadow: 0 0 10px rgba(0, 234, 255, 0.05);
+      transition: 0.3s;
+      position: relative;
+    }
+    .ilan:hover {
+      transform: translateY(-5px);
+    }
+    .ilan strong { color: #00eaff; font-size: 18px; display: block; margin-bottom: 6px; }
+    .ilan p { font-size: 14px; margin: 4px 0; color: #ccc; }
+    .yorumlar {
+      background: #151b27;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    .yorumlar p {
+      border-bottom: 1px solid #333;
+      padding: 4px 0;
+      margin: 0;
+    }
+    .yorum-ekle {
+      margin-top: 10px;
+    }
+    .btn-sil {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ff4d4d;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 5px 10px;
+      transition: 0.3s;
+    }
+    .btn-sil:hover {
+      background: #ff1a1a;
+      box-shadow: 0 0 8px #ff1a1a;
+    }
+    .logout-btn {
+      background: #ff8800;
+      color: black;
+      font-weight: bold;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      transition: 0.3s;
+    }
+    .logout-btn:hover {
+      background: #ffb347;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Giriş Kutusu -->
+  <div class="login-box" id="loginBox">
+    <h2>Giriş Yap</h2>
+    <input type="text" id="kullaniciAdi" placeholder="Adınızı girin" />
+    <input type="password" id="sifre" placeholder="Şifre (admin için zorunlu)" />
+    <button onclick="girisYap()">Giriş Yap</button>
+  </div>
+
+  <!-- İlan Verme Kutusu -->
+  <div class="header-box" id="ilanVerBox" style="display:none;">
+    <h2>Trade İlanı Ver</h2>
+    <button class="logout-btn" onclick="cikisYap()">Çıkış Yap</button>
+    <input type="text" id="ilanBaslik" placeholder="İlan Başlığı" />
+    <input type="text" id="urun" placeholder="Verilen Ürün" />
+    <input type="text" id="istenenUrun" placeholder="İstenen Ürün" />
+    <button onclick="ilanVer()">İlan Ver</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-panel" id="adminPanel" style="display:none;">
+    <h2>Admin Paneli</h2>
+    <button class="logout-btn" onclick="cikisYap()">Çıkış Yap</button>
+    <h3>İlanları Yönet</h3>
+    <div id="adminIlanlar"></div>
+  </div>
+
+  <!-- İlanlar -->
+  <div id="ilanlar">
+    <h3>Yayınlanan İlanlar</h3>
+    <div class="ilanlar-wrapper" id="ilanlarWrapper"></div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7hqyOIwdFKF-1lJtym3c-XKG3LBxXRf4",
+    authDomain: "takasa-f1c17.firebaseapp.com",
+    databaseURL: "https://takasa-f1c17-default-rtdb.firebaseio.com/",
+    projectId: "takasa-f1c17",
+    storageBucket: "takasa-f1c17.appspot.com",
+    messagingSenderId: "458559786293",
+    appId: "1:458559786293:web:01ffd0d3c7943d5237507c"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let kullanici = "";
+  let adminGiris = false;
+
+  const loginBox = document.getElementById("loginBox");
+  const ilanVerBox = document.getElementById("ilanVerBox");
+  const ilanlarWrapper = document.getElementById("ilanlarWrapper");
+  const adminPanel = document.getElementById("adminPanel");
+  const adminIlanlarDiv = document.getElementById("adminIlanlar");
+
+  window.onload = () => {
+    const kayitliKullanici = localStorage.getItem("kullaniciAdi");
+    const kayitliAdmin = localStorage.getItem("adminGiris") === "true";
+    if (kayitliKullanici) {
+      kullanici = kayitliKullanici;
+      adminGiris = kayitliAdmin;
+      loginBox.style.display = "none";
+      if (adminGiris) {
+        adminPanel.style.display = "block";
+        ilanVerBox.style.display = "none";
+      } else {
+        ilanVerBox.style.display = "block";
+        adminPanel.style.display = "none";
+      }
+    }
+  };
+
+  function girisYap() {
+    const ad = document.getElementById("kullaniciAdi").value.trim();
+    const sifre = document.getElementById("sifre").value.trim();
+
+    if (!ad) {
+      alert("Lütfen kullanıcı adınızı girin.");
+      return;
+    }
+
+    if (ad === "adminrıza") {
+      if (sifre !== "tradepaneladmin") {
+        alert("Admin şifresi yanlış!");
+        return;
+      }
+      adminGiris = true;
+      kullanici = ad;
+      localStorage.setItem("adminGiris", "true");
+      localStorage.setItem("kullaniciAdi", kullanici);
+      loginBox.style.display = "none";
+      adminPanel.style.display = "block";
+      ilanVerBox.style.display = "none";
+    } else {
+      adminGiris = false;
+      kullanici = ad;
+      localStorage.setItem("kullaniciAdi", kullanici);
+      localStorage.setItem("adminGiris", "false");
+      loginBox.style.display = "none";
+      ilanVerBox.style.display = "block";
+      adminPanel.style.display = "none";
+    }
+  }
+
+  function cikisYap() {
+    kullanici = "";
+    adminGiris = false;
+    localStorage.removeItem("kullaniciAdi");
+    localStorage.removeItem("adminGiris");
+    loginBox.style.display = "block";
+    ilanVerBox.style.display = "none";
+    adminPanel.style.display = "none";
+  }
+
+  function ilanVer() {
+    const baslik = document.getElementById("ilanBaslik").value.trim();
+    const urun = document.getElementById("urun").value.trim();
+    const istenen = document.getElementById("istenenUrun").value.trim();
+
+    if (baslik && urun && istenen) {
+      const ilan = {
+        baslik,
+        urun,
+        istenen,
+        ilanSahibi: kullanici,
+        zaman: Date.now()
+      };
+      db.ref("ilanlar").push(ilan);
+      document.getElementById("ilanBaslik").value = "";
+      document.getElementById("urun").value = "";
+      document.getElementById("istenenUrun").value = "";
+    } else {
+      alert("Lütfen tüm ilan alanlarını doldurun.");
+    }
+  }
+
+  // Normal kullanıcı ilanlarını göster
+  db.ref("ilanlar").on("child_added", snapshot => {
+    const key = snapshot.key;
+    const ilan = snapshot.val();
+
+    const div = document.createElement("div");
+    div.className = "ilan";
+    div.innerHTML = `
+      <strong>${ilan.baslik}</strong>
+      <p><b>Verilen:</b> ${ilan.urun}</p>
+      <p><b>İstenen:</b> ${ilan.istenen}</p>
+      <p><b>Sahibi:</b> ${ilan.ilanSahibi}</p>
+      <div class="yorumlar" id="yorumlar-${key}"></div>
+      <div class="yorum-ekle">
+        <textarea id="yorum-input-${key}" placeholder="Yorum yaz..." rows="2"></textarea>
+        <button onclick="yorumEkle('${key}')">Gönder</button>
+      </div>
+    `;
+    ilanlarWrapper.appendChild(div);
+
+    // Yorumları dinle
+    db.ref("yorumlar/" + key).on("child_added", ySnap => {
+      const y = ySnap.val();
+      const yorumlarDiv = document.getElementById("yorumlar-" + key);
+      if (yorumlarDiv) {
+        const p = document.createElement("p");
+        p.innerHTML = `<b>${y.kim}:</b> ${y.metin}`;
+        yorumlarDiv.appendChild(p);
+      }
+    });
+  });
+
+  function yorumEkle(ilanId) {
+    const yorumInput = document.getElementById("yorum-input-" + ilanId);
+    if (!yorumInput) return;
+    const metin = yorumInput.value.trim();
+    if (metin) {
+      const yorum = {
+        kim: kullanici,
+        metin
+      };
+      db.ref("yorumlar/" + ilanId).push(yorum);
+      yorumInput.value = "";
+    }
+  }
+
+  // Admin panel ilan listeleme ve silme
+  db.ref("ilanlar").on("value", snapshot => {
+    if (!adminGiris) return;
+
+    adminIlanlarDiv.innerHTML = "";
+
+    const ilanlar = snapshot.val();
+    if (!ilanlar) {
+      adminIlanlarDiv.innerHTML = "<p>Hiç ilan yok.</p>";
+      return;
+    }
+
+    Object.entries(ilanlar).forEach(([key, ilan]) => {
+      const ilanDiv = document.createElement("div");
+      ilanDiv.className = "ilan";
+      ilanDiv.style.width = "100%";
+      ilanDiv.style.position = "relative";
+      ilanDiv.innerHTML = `
+        <strong>${ilan.baslik}</strong>
+        <p><b>Verilen:</b> ${ilan.urun}</p>
+        <p><b>İstenen:</b> ${ilan.istenen}</p>
+        <p><b>Sahibi:</b> ${ilan.ilanSahibi}</p>
+        <button class="btn-sil" onclick="ilanSil('${key}')">İlanı Sil</button>
+      `;
+      adminIlanlarDiv.appendChild(ilanDiv);
+    });
+  });
+
+  function ilanSil(ilanId) {
+    if (confirm("Bu ilanı silmek istediğinize emin misiniz?")) {
+      db.ref("ilanlar/" + ilanId).remove();
+      db.ref("yorumlar/" + ilanId).remove();
+      alert("İlan silindi.");
+    }
+  }
+</script>
+
+</body>
+</html>
